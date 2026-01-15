@@ -1,6 +1,10 @@
 {
   "name": "hello-world",
   "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ramkumar122/spades.git"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
