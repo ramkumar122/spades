@@ -1,0 +1,322 @@
+<div class="page dark">
+  <!-- Setup -->
+  <section *ngIf="!game()" class="setup-panel">
+    <div class="setup-header">
+      <div>
+        <p class="eyebrow">Spades Scoreboard</p>
+        <h1>Build your table</h1>
+        <p class="muted">13 rounds • Exact match = +bid • Overbid = −won • Underbid = −bid</p>
+      </div>
+      <div class="actions">
+        <button class="primary" type="button" (click)="startGame()">Start</button>
+      </div>
+    </div>
+
+    <div class="mode-row">
+      <label class="toggle">
+        <input type="radio" name="mode" [checked]="!playingTeams()" (change)="playingTeams.set(false)" />
+        <span>Solo (no teams)</span>
+      </label>
+      <label class="toggle">
+        <input type="radio" name="mode" [checked]="playingTeams()" (change)="playingTeams.set(true)" />
+        <span>Teams</span>
+      </label>
+    </div>
+
+    <ng-container *ngIf="playingTeams(); else soloMode">
+      <div class="setup-grid">
+        <div class="team-setup">
+          <p class="team-label team1">Team 1</p>
+          <div class="input-list">
+            <div class="input-row" *ngFor="let name of setupTeam1(); let i = index; trackBy: trackByIndex">
+              <input
+                type="text"
+                [ngModel]="name"
+                (ngModelChange)="updateSetupPlayer(0, i, $event)"
+                placeholder="Player name"
+              />
+              <button class="ghost danger" type="button" (click)="removeSetupPlayer(0, i)">✕</button>
+            </div>
+          </div>
+          <button class="ghost" type="button" (click)="addSetupPlayer(0)">Add Team 1 player</button>
+        </div>
+
+        <div class="team-setup">
+          <p class="team-label team2">Team 2</p>
+          <div class="input-list">
+            <div class="input-row" *ngFor="let name of setupTeam2(); let i = index; trackBy: trackByIndex">
+              <input
+                type="text"
+                [ngModel]="name"
+                (ngModelChange)="updateSetupPlayer(1, i, $event)"
+                placeholder="Player name"
+              />
+              <button class="ghost danger" type="button" (click)="removeSetupPlayer(1, i)">✕</button>
+            </div>
+          </div>
+          <button class="ghost" type="button" (click)="addSetupPlayer(1)">Add Team 2 player</button>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #soloMode>
+      <div class="team-setup solo">
+        <p class="team-label">Players</p>
+        <div class="input-list">
+          <div class="input-row" *ngFor="let name of setupSolo(); let i = index; trackBy: trackByIndex">
+            <input
+              type="text"
+              [ngModel]="name"
+              (ngModelChange)="updateSoloPlayer(i, $event)"
+              placeholder="Player name"
+            />
+            <button class="ghost danger" type="button" (click)="removeSoloPlayer(i)">✕</button>
+          </div>
+        </div>
+        <button class="ghost" type="button" (click)="addSoloPlayer()">Add player</button>
+      </div>
+    </ng-template>
+
+    <div class="options-row">
+      <label class="toggle">
+        <input type="checkbox" [ngModel]="enforceTotal()" (ngModelChange)="enforceTotal.set(!!$event)" />
+        <span>Require total wins per round to equal 13 tricks</span>
+        <small class="muted">(turn on only if you track all 13 tricks each round)</small>
+      </label>
+      <div class="muted counts">{{ totalPlayersCount() }} / 12 players</div>
+    </div>
+
+    <p class="validation" *ngIf="validationMessage()">{{ validationMessage() }}</p>
+  </section>
+
+  <!-- Game -->
+  <section *ngIf="game() as g" class="board">
+    <header class="score-hero">
+      <div class="nav">
+        <button class="pill" type="button" (click)="goToRound(-1)" [disabled]="currentRoundIndex() === 0">←</button>
+        <div class="round-tag">Round {{ currentRoundIndex() + 1 }} / 13</div>
+        <button class="pill" type="button" (click)="goToRound(1)" [disabled]="currentRoundIndex() === 12">→</button>
+      </div>
+
+      <div class="score-strip" *ngIf="playingTeams(); else soloScore">
+        <div class="team-block team1">
+          <p class="label">Team 1</p>
+          <div class="score-big">{{ teamTotalScore(0) }}</div>
+          <div class="sub">This round: {{ teamRoundScore(0, currentRoundIndex()) }}</div>
+        </div>
+        <div class="center-block">
+          <p class="eyebrow">Score</p>
+          <h2>{{ g.name || 'Untitled table' }}</h2>
+          <p class="muted">Unclaimed: {{ unclaimedTricks(currentRoundIndex()) }}</p>
+          <p class="muted">Players: {{ g.players.length }}</p>
+        </div>
+        <div class="team-block team2">
+          <p class="label">Team 2</p>
+          <div class="score-big alt">{{ teamTotalScore(1) }}</div>
+          <div class="sub">This round: {{ teamRoundScore(1, currentRoundIndex()) }}</div>
+        </div>
+      </div>
+      <ng-template #soloScore>
+        <div class="score-strip solo">
+          <div class="team-block">
+            <p class="label">Total</p>
+            <div class="score-big">{{ teamTotalScore(0) }}</div>
+            <div class="sub">This round: {{ teamRoundScore(0, currentRoundIndex()) }}</div>
+            <div class="sub">Unclaimed: {{ unclaimedTricks(currentRoundIndex()) }}</div>
+            <div class="sub">Players: {{ g.players.length }}</div>
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="actions">
+        <button class="ghost" type="button" (click)="copySummary()">Copy</button>
+        <button class="ghost" type="button" (click)="downloadCsv()">CSV</button>
+        <button class="ghost" type="button" (click)="downloadJson()">JSON</button>
+        <button class="primary" type="button" (click)="resetGame()">New Game</button>
+      </div>
+    </header>
+
+    <div class="round-card">
+      <div class="round-head">
+        <div class="label">Bids &amp; Actuals</div>
+        <div class="muted">Exact match = +bid • Overbid = −won • Underbid = −bid</div>
+      </div>
+
+      <div class="teams-row" *ngIf="playingTeams(); else soloEntries">
+        <div class="team-col">
+          <div class="team-title team1">
+            <span>Team 1</span>
+            <span class="round-total">{{ teamRoundScore(0, currentRoundIndex()) }}</span>
+          </div>
+          <div class="entries">
+            <div class="entry" *ngFor="let player of teamPlayers(0); trackBy: trackById">
+              <div class="name">{{ player.name }}</div>
+              <div class="inputs">
+                <label>Bid</label>
+                <input
+                  #bidInput
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].bids[player.id]"
+                  (ngModelChange)="setBid(player.id, $event)"
+                />
+                <label>Won</label>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].wins[player.id]"
+                  (ngModelChange)="setWin(player.id, $event)"
+                />
+              </div>
+              <div class="entry-score" [class.match]="roundScore(player.id, currentRoundIndex()) === g.rounds[currentRoundIndex()].bids[player.id] && roundScore(player.id, currentRoundIndex()) !== null" [class.penalty]="roundScore(player.id, currentRoundIndex()) !== null && roundScore(player.id, currentRoundIndex()) !== g.rounds[currentRoundIndex()].bids[player.id]">
+                {{ roundScore(player.id, currentRoundIndex()) ?? '—' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="team-col">
+          <div class="team-title team2">
+            <span>Team 2</span>
+            <span class="round-total">{{ teamRoundScore(1, currentRoundIndex()) }}</span>
+          </div>
+          <div class="entries">
+            <div class="entry" *ngFor="let player of teamPlayers(1); trackBy: trackById">
+              <div class="name">{{ player.name }}</div>
+              <div class="inputs">
+                <label>Bid</label>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].bids[player.id]"
+                  (ngModelChange)="setBid(player.id, $event)"
+                />
+                <label>Won</label>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].wins[player.id]"
+                  (ngModelChange)="setWin(player.id, $event)"
+                />
+              </div>
+              <div class="entry-score" [class.match]="roundScore(player.id, currentRoundIndex()) === g.rounds[currentRoundIndex()].bids[player.id] && roundScore(player.id, currentRoundIndex()) !== null" [class.penalty]="roundScore(player.id, currentRoundIndex()) !== null && roundScore(player.id, currentRoundIndex()) !== g.rounds[currentRoundIndex()].bids[player.id]">
+                {{ roundScore(player.id, currentRoundIndex()) ?? '—' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #soloEntries>
+        <div class="team-col solo">
+          <div class="team-title">
+            <span>Players</span>
+            <span class="round-total">{{ teamRoundScore(0, currentRoundIndex()) }}</span>
+          </div>
+          <div class="entries">
+            <div class="entry" *ngFor="let player of g.players; trackBy: trackById">
+              <div class="name">{{ player.name }}</div>
+              <div class="inputs">
+                <label>Bid</label>
+                <input
+                  #bidInput
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].bids[player.id]"
+                  (ngModelChange)="setBid(player.id, $event)"
+                />
+                <label>Won</label>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="13"
+                  [ngModel]="g.rounds[currentRoundIndex()].wins[player.id]"
+                  (ngModelChange)="setWin(player.id, $event)"
+                />
+              </div>
+              <div class="entry-score" [class.match]="roundScore(player.id, currentRoundIndex()) === g.rounds[currentRoundIndex()].bids[player.id] && roundScore(player.id, currentRoundIndex()) !== null" [class.penalty]="roundScore(player.id, currentRoundIndex()) !== null && roundScore(player.id, currentRoundIndex()) !== g.rounds[currentRoundIndex()].bids[player.id]">
+                {{ roundScore(player.id, currentRoundIndex()) ?? '—' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="round-meta">
+        <div class="chip">Unclaimed tricks: {{ unclaimedTricks(currentRoundIndex()) }}</div>
+        <div class="chip">Bids filled: {{ roundHasAllBids() ? 'Yes' : 'No' }}</div>
+        <div class="chip">Wins filled: {{ roundHasAllWins() ? 'Yes' : 'No' }}</div>
+        <div class="chip">Completed: {{ completedRounds() }} / 13</div>
+      </div>
+
+      <div class="standings">
+        <div class="standings-head">
+          <div>
+            <p class="label">Player standings</p>
+            <h3>Totals (high to low)</h3>
+          </div>
+          <span class="muted">Updated live</span>
+        </div>
+        <div class="standings-list">
+          <div class="stand-row" *ngFor="let row of leaderboard(); let i = index">
+            <span class="rank">{{ emojiForRank(i) }} #{{ i + 1 }}</span>
+            <span class="name">{{ row.player.name }}</span>
+            <span class="meta muted">Matches {{ row.matches }} • Avg bid {{ row.avgBid | number:'1.1-1' }} • Avg won {{ row.avgWon | number:'1.1-1' }}</span>
+            <span class="total">{{ row.total }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="final-card" *ngIf="isGameComplete()">
+        <div class="final-header">
+          <h3>Game finished</h3>
+          <p class="muted">Winners and placements</p>
+        </div>
+        <div class="podium">
+          <div class="podium-row" *ngFor="let row of podium().top3; let i = index">
+            <span class="emoji">{{ emojiForRank(i) }}</span>
+            <div class="podium-info">
+              <div class="name">{{ row.player.name }}</div>
+              <div class="muted small">Score {{ row.total }} • Matches {{ row.matches }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="rest" *ngIf="podium().rest.length">
+          <p class="label">Others</p>
+          <div class="rest-row" *ngFor="let row of podium().rest; let idx = index">
+            <span class="emoji">{{ emojiForRank(idx + 3) }}</span>
+            <span class="name">{{ row.player.name }}</span>
+            <span class="total muted">{{ row.total }}</span>
+          </div>
+        </div>
+        <div class="rematch">
+          <p class="muted">Play another game? Edit names if you want to change seats.</p>
+          <button class="primary" type="button" (click)="prepareRematch()">Set up rematch</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-strip">
+      <div
+        class="history-pill"
+        *ngFor="let round of g.rounds; index as i"
+        (click)="jumpToRound(i)"
+        [class.active]="currentRoundIndex() === i"
+      >
+        <span>R{{ i + 1 }}</span>
+        <span class="muted">{{ roundComplete(i) ? 'Done' : 'Open' }}</span>
+      </div>
+    </div>
+  </section>
+</div>
