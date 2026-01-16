@@ -2,7 +2,7 @@ import { Component, signal, effect, AfterViewInit, QueryList, ViewChildren, Elem
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-type Player = { id: string; name: string; team: 0 | 1 };
+type Player = { id: string; name: string; team: number };
 type Round = { bids: Record<string, number | null>; wins: Record<string, number | null> };
 type GameState = {
   id: string;
@@ -28,12 +28,13 @@ export class App implements AfterViewInit {
   protected game = signal<GameState | null>(null);
   protected setupName = signal('');
   protected playingTeams = signal(false);
-  protected setupTeam1 = signal<string[]>([]);
-  protected setupTeam2 = signal<string[]>([]);
+  protected setupTeams = signal<string[][]>([[], []]);
   protected setupSolo = signal<string[]>([]);
   protected enforceTotal = signal(false);
   protected validationMessage = signal('');
   protected toast = signal('');
+  protected showRanks = signal(true);
+  protected roundAlert = signal('');
 
   @ViewChildren('bidInput') protected bidInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
@@ -62,20 +63,23 @@ export class App implements AfterViewInit {
     });
   }
 
-  protected updateSetupPlayer(team: 0 | 1, index: number, value: string) {
-    const setter = team === 0 ? this.setupTeam1 : this.setupTeam2;
-    setter.update((list) => {
-      const clone = [...list];
-      clone[index] = value;
+  protected updateSetupPlayer(teamIndex: number, index: number, value: string) {
+    this.setupTeams.update((teams) => {
+      const clone = teams.map((t) => [...t]);
+      if (!clone[teamIndex]) clone[teamIndex] = [];
+      clone[teamIndex][index] = value;
       return clone;
     });
   }
 
-  protected addSetupPlayer(team: 0 | 1) {
-    const setter = team === 0 ? this.setupTeam1 : this.setupTeam2;
-    setter.update((list) => {
-      if (this.setupTeam1().length + this.setupTeam2().length >= 12) return list;
-      return [...list, ``];
+  protected addSetupPlayer(teamIndex: number) {
+    this.setupTeams.update((teams) => {
+      const clone = teams.map((t) => [...t]);
+      const total = clone.reduce((sum, t) => sum + t.length, 0);
+      if (total >= 12) return clone;
+      if (!clone[teamIndex]) clone[teamIndex] = [];
+      clone[teamIndex].push('');
+      return clone;
     });
   }
 
@@ -86,12 +90,19 @@ export class App implements AfterViewInit {
     });
   }
 
-  protected removeSetupPlayer(team: 0 | 1, index: number) {
-    const setter = team === 0 ? this.setupTeam1 : this.setupTeam2;
-    setter.update((list) => {
-      const clone = [...list];
-      clone.splice(index, 1);
+  protected removeSetupPlayer(teamIndex: number, index: number) {
+    this.setupTeams.update((teams) => {
+      const clone = teams.map((t) => [...t]);
+      if (!clone[teamIndex]) return clone;
+      clone[teamIndex].splice(index, 1);
       return clone;
+    });
+  }
+
+  protected addTeam() {
+    this.setupTeams.update((teams) => {
+      if (teams.length >= 6) return teams;
+      return [...teams, []];
     });
   }
 
@@ -113,11 +124,15 @@ export class App implements AfterViewInit {
 
   protected startGame() {
     const teamMode = this.playingTeams();
-    const team1Names = teamMode
-      ? this.setupTeam1().map((n) => n.trim()).filter((n) => n.length > 0)
-      : this.setupSolo().map((n) => n.trim()).filter((n) => n.length > 0);
-    const team2Names = teamMode ? this.setupTeam2().map((n) => n.trim()).filter((n) => n.length > 0) : [];
-    const names = [...team1Names, ...team2Names];
+    const teamNames = teamMode
+      ? this.setupTeams()
+          .map((team, teamIdx) => team.map((n) => ({ name: n.trim(), teamIdx })))
+          .flat()
+          .filter((n) => n.name.length > 0)
+      : this.setupSolo()
+          .map((n) => ({ name: n.trim(), teamIdx: 0 }))
+          .filter((n) => n.name.length > 0);
+    const names = teamNames.map((n) => n.name);
 
     if (names.length < 2 || names.length > 12) {
       this.validationMessage.set('Add between 2 and 12 players to begin.');
@@ -131,22 +146,15 @@ export class App implements AfterViewInit {
     }
 
     const players: Player[] = teamMode
-      ? [
-          ...team1Names.map((name, idx) => ({
-            id: crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-t1-${idx}`,
-            name,
-            team: 0 as const
-          })),
-          ...team2Names.map((name, idx) => ({
-            id: crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-t2-${idx}`,
-            name,
-            team: 1 as const
-          }))
-        ]
-      : team1Names.map((name, idx) => ({
+      ? teamNames.map((entry, idx) => ({
+          id: crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-t${entry.teamIdx}-${idx}`,
+          name: entry.name,
+          team: entry.teamIdx
+        }))
+      : teamNames.map((entry, idx) => ({
           id: crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-solo-${idx}`,
-          name,
-          team: 0 as const
+          name: entry.name,
+          team: 0
         }));
 
     const rounds: Round[] = Array.from({ length: 13 }, () => ({
@@ -174,8 +182,7 @@ export class App implements AfterViewInit {
     this.setupName.set('');
     this.enforceTotal.set(false);
     this.playingTeams.set(false);
-    this.setupTeam1.set([]);
-    this.setupTeam2.set([]);
+    this.setupTeams.set([[], []]);
     this.setupSolo.set([]);
     this.toast.set('Create a new game to begin.');
   }
@@ -200,8 +207,18 @@ export class App implements AfterViewInit {
   protected goToRound(delta: number) {
     this.game.update((g) => {
       if (!g) return g;
-      const next = Math.max(0, Math.min(12, g.currentRound + delta));
-      if (next === g.currentRound) return g;
+      const currentIdx = g.currentRound;
+      const next = Math.max(0, Math.min(12, currentIdx + delta));
+      if (next === currentIdx) return g;
+
+      if (delta > 0 && !this.validateRoundSum(currentIdx)) {
+        const msg = `Round ${currentIdx + 1}: total "Won" must equal ${currentIdx + 1} before moving forward.`;
+        this.toast.set(msg);
+        this.roundAlert.set(msg);
+        return g;
+      }
+
+      this.roundAlert.set('');
       return { ...g, currentRound: next };
     });
     queueMicrotask(() => this.focusFirstBid());
@@ -439,20 +456,41 @@ export class App implements AfterViewInit {
     return index;
   }
 
-  protected teamPlayers(team: 0 | 1) {
+  protected teamPlayers(team: number) {
     const g = this.game();
     if (!g) return [];
     return g.players.filter((p) => p.team === team);
   }
 
-  protected teamRoundScore(team: 0 | 1, roundIndex: number): number {
+  protected teamRoundScore(team: number, roundIndex: number): number {
     const players = this.teamPlayers(team);
     return players.reduce((sum, p) => sum + (this.roundScore(p.id, roundIndex) ?? 0), 0);
   }
 
-  protected teamTotalScore(team: 0 | 1): number {
+  protected teamTotalScore(team: number): number {
     const players = this.teamPlayers(team);
     return players.reduce((sum, p) => sum + this.totalScore(p.id), 0);
+  }
+
+  protected teamIds(): number[] {
+    const g = this.game();
+    if (!g) return [];
+    return Array.from(new Set(g.players.map((p) => p.team))).sort((a, b) => a - b);
+  }
+
+  protected teamLabel(team: number) {
+    return `Team ${team + 1}`;
+  }
+
+  protected teamLeaderboard() {
+    const g = this.game();
+    if (!g) return [];
+    const teams = this.teamIds().map((id) => ({
+      id,
+      name: this.teamLabel(id),
+      total: this.teamTotalScore(id)
+    }));
+    return teams.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   }
 
   protected unclaimedTricks(roundIndex: number): number {
@@ -460,7 +498,21 @@ export class App implements AfterViewInit {
   }
 
   protected totalPlayersCount(): number {
-    return this.playingTeams() ? this.setupTeam1().length + this.setupTeam2().length : this.setupSolo().length;
+    return this.playingTeams()
+      ? this.setupTeams().reduce((sum, t) => sum + t.length, 0)
+      : this.setupSolo().length;
+  }
+
+  private validateRoundSum(roundIndex: number): boolean {
+    const g = this.game();
+    if (!g) return true;
+    const expected = roundIndex + 1;
+    const totalWins = this.roundWinsTotal(roundIndex);
+    return totalWins === expected;
+  }
+
+  protected roundSumOk(idx: number): boolean {
+    return this.validateRoundSum(idx);
   }
 
   protected podium() {
@@ -468,6 +520,32 @@ export class App implements AfterViewInit {
     return {
       top3: lb.slice(0, 3),
       rest: lb.slice(3)
+    };
+  }
+
+  protected podiumTeams() {
+    const lb = this.teamLeaderboard();
+    return {
+      top3: lb.slice(0, 3),
+      rest: lb.slice(3)
+    };
+  }
+
+  protected podiumDisplay() {
+    const useTeams = this.playingTeams();
+    const base = useTeams ? this.teamLeaderboard() : this.leaderboard();
+    const mapped = base.map((item: any, idx: number) => ({
+      label: useTeams ? item.name : item.player.name,
+      total: item.total,
+      rank: idx
+    }));
+    const pod = {
+      top3: mapped.slice(0, 3),
+      rest: mapped.slice(3)
+    };
+    return {
+      top3: pod.top3,
+      rest: pod.rest
     };
   }
 
@@ -481,11 +559,16 @@ export class App implements AfterViewInit {
   protected prepareRematch() {
     const g = this.game();
     if (!g) return;
-    const hasTeams = g.players.some((p) => p.team === 1);
+    const hasTeams = g.players.some((p) => p.team > 0);
     this.playingTeams.set(hasTeams);
     if (hasTeams) {
-      this.setupTeam1.set(g.players.filter((p) => p.team === 0).map((p) => p.name));
-      this.setupTeam2.set(g.players.filter((p) => p.team === 1).map((p) => p.name));
+      const maxTeam = Math.max(...g.players.map((p) => p.team));
+      const rebuilt: string[][] = Array.from({ length: maxTeam + 1 }, () => []);
+      g.players.forEach((p) => {
+        if (!rebuilt[p.team]) rebuilt[p.team] = [];
+        rebuilt[p.team].push(p.name);
+      });
+      this.setupTeams.set(rebuilt);
     } else {
       this.setupSolo.set(g.players.map((p) => p.name));
     }

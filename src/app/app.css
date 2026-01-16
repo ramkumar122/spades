@@ -118,6 +118,10 @@ input:focus {
   margin-top: 16px;
 }
 
+.add-team-row {
+  margin-top: 10px;
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -210,6 +214,22 @@ input:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.round-nav-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.round-chip {
+  background: #2f3a49;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #f7f7fb;
+  font-weight: 700;
+  border: 1px solid #3a4657;
 }
 
 .teams-row {
@@ -302,6 +322,12 @@ input:focus {
   border: 1px solid #3a4657;
 }
 
+.chip.warning {
+  background: #3b1f2b;
+  border-color: #f87171;
+  color: #fca5a5;
+}
+
 .standings {
   margin-top: 16px;
   background: #121a26;
@@ -315,6 +341,17 @@ input:focus {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.standings-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle.small {
+  font-size: 13px;
 }
 
 .standings-list {
@@ -355,13 +392,14 @@ input:focus {
 
 .final-card {
   margin-top: 16px;
-  background: #101622;
+  background: radial-gradient(circle at 20% 20%, #1b2433 0%, #0b111b 65%);
   border: 1px solid #2f3a49;
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
 }
 
 .final-header h3 {
@@ -392,6 +430,61 @@ input:focus {
 .emoji {
   font-size: 20px;
   text-align: center;
+}
+
+.celebrate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.confetti {
+  font-size: 18px;
+  letter-spacing: 4px;
+}
+
+.podium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.podium-block {
+  background: #0f1622;
+  border: 1px solid #2f3a49;
+  border-radius: 12px 12px 4px 4px;
+  padding: 12px 10px;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.podium-block.first {
+  background: linear-gradient(180deg, #1f2f63, #111b2f);
+  transform: translateY(-6px);
+}
+
+.podium-block.second {
+  background: linear-gradient(180deg, #144934, #0d1916);
+}
+
+.podium-block.third {
+  background: linear-gradient(180deg, #512a5a, #1a0f24);
+}
+
+.trophy {
+  font-size: 28px;
+}
+
+.rank-num {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.podium-name {
+  font-weight: 700;
+  margin-top: 4px;
 }
 
 .rest {
@@ -538,4 +631,16 @@ button {
   .score-hero {
     padding: 12px;
   }
+
+  .podium-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.round-chip {
+  background: #2f3a49;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #f7f7fb;
+  font-weight: 700;
+  border: 1px solid #3a4657;
 }
