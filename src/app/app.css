@@ -97,7 +97,7 @@
 input[type='text'],
 input[type='number'] {
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 8px;
   border-radius: 10px;
   border: 1px solid #2f3a49;
   background: #101622;
@@ -268,8 +268,9 @@ input:focus {
 
 .entry {
   display: grid;
-  grid-template-columns: 120px 1fr 80px;
-  gap: 10px;
+  grid-template-columns: 1fr 80px;
+  grid-template-rows: auto auto;
+  gap: 8px;
   align-items: center;
   padding: 10px;
   border-radius: 10px;
@@ -283,13 +284,15 @@ input:focus {
 
 .inputs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  grid-column: 1 / -1;
 }
 
 .inputs label {
   font-size: 12px;
   color: #cfd6e1;
+  margin-top: 2px;
 }
 
 .entry-score {
@@ -629,11 +632,52 @@ button {
 
   .round-card,
   .score-hero {
-    padding: 12px;
+    padding: 10px;
   }
 
   .podium-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 16px 10px 56px;
+  }
+
+  .score-hero h2 {
+    font-size: 18px;
+  }
+
+  .score-big {
+    font-size: 28px;
+  }
+
+  .sub,
+  .muted,
+  .label {
+    font-size: 12px;
+  }
+
+  .pill,
+  .ghost {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .primary {
+    padding: 8px 12px;
+  }
+
+  .round-chip {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  input[type='text'],
+  input[type='number'] {
+    padding: 4px 6px;
+    font-size: 13px;
   }
 }
 .round-chip {
