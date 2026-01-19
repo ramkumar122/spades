@@ -347,6 +347,13 @@ export class App implements AfterViewInit {
     return Object.values(round.wins).reduce<number>((sum, val) => sum + (val ?? 0), 0);
   }
 
+  protected roundBidsTotal(roundIndex: number): number {
+    const g = this.game();
+    if (!g) return 0;
+    const round = g.rounds[roundIndex];
+    return Object.values(round.bids).reduce<number>((sum, val) => sum + (val ?? 0), 0);
+  }
+
   protected completedRounds(): number {
     const g = this.game();
     if (!g) return 0;

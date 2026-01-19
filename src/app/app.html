@@ -132,6 +132,7 @@
           <div class="round-chip">Round {{ currentRoundIndex() + 1 }} / 13</div>
           <button class="pill" type="button" (click)="goToRound(1)" [disabled]="currentRoundIndex() === 12">→</button>
         </div>
+        <div class="round-chip info">Total bids: {{ roundBidsTotal(currentRoundIndex()) }}</div>
       </div>
 
       <div class="teams-row" *ngIf="playingTeams(); else soloEntries">
@@ -273,7 +274,8 @@
             <div class="podium-block first" *ngIf="podiumDisplay().top3[0] as p1">
               <div class="trophy">🥇</div>
               <div class="rank-num">1</div>
-              <div class="podium-name">{{ p1.label }}</div>
+              <!--  <div class="podium-name">{{ p1.label }}</div> -->
+              <div class="podium-name victory">వీరాధి వీరుడు శూరుడు విజయ తిలకం {{ p1.label }}</div>
               <div class="muted small">Total {{ p1.total }}</div>
             </div>
             <div class="podium-block third" *ngIf="podiumDisplay().top3[2] as p3">
